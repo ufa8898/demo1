@@ -17,18 +17,33 @@ const data=[
 ["มิกเซอร์","น้ำแข็ง",40,"🧊"],["มิกเซอร์","โทนิค",35,"🥛"],["มิกเซอร์","น้ำมะนาว",40,"🍋"],["มิกเซอร์","น้ำแดง",35,"🥤"],
 ["ของหวาน","ไอศกรีมวานิลลา",69,"🍨"],["ของหวาน","บราวนี่ไอศกรีม",99,"🍫"],["ของหวาน","ฮันนี่โทสต์",129,"🍞"],["ของหวาน","เฉาก๊วยนมสด",69,"🥛"]
 ].map((x,i)=>({id:i+1,cat:x[0],name:x[1],price:x[2],emoji:x[3]}));
-const q=new URLSearchParams(location.search),table=q.get("table")||"1";let cat=data[0].cat,cart=[];tableNo.textContent=table;
-function cats(){return [...new Set(data.map(x=>x.cat))]}function renderTabs(){tabs.innerHTML=cats().map(c=>`<button class="${c===cat?"on":""}" onclick="cat='${c}';renderMenu();renderTabs()">${c}</button>`).join("")}
-function renderMenu(){menu.innerHTML=data.filter(x=>x.cat===cat).map(x=>`<div class="item"><div class="emoji">${x.emoji}</div><h3>${x.name}</h3><div class="price">฿${x.price}</div><button class="btn" onclick="add(${x.id})">+ เพิ่มลงตะกร้า</button></div>`).join("")}
-function add(id){let x=data.find(a=>a.id===id),y=cart.find(a=>a.id===id);y?y.qty++:cart.push({...x,qty:1});renderCart()}
-function renderCart(){cart.innerHTML=cart.length?cart.map(x=>`<div class="cartline"><span>${x.name} × ${x.qty}</span><span>฿${x.price*x.qty}</span></div>`).join("")+`<div class="total"><span>รวม</span><span>฿${cart.reduce((s,x)=>s+x.price*x.qty,0)}</span></div>`:"<div class='muted'>ยังไม่มีสินค้า</div>"}
+const q=new URLSearchParams(location.search);
+const table=q.get("table")||"1";
+let cat=data[0].cat;
+let cartItems=[];
+const el={
+ tableNo:document.getElementById("tableNo"),tabs:document.getElementById("tabs"),
+ menu:document.getElementById("menu"),cart:document.getElementById("cart"),
+ note:document.getElementById("note"),history:document.getElementById("history"),
+ customer:document.getElementById("customer"),staff:document.getElementById("staff"),
+ allOrders:document.getElementById("allOrders"),qrTable:document.getElementById("qrTable"),
+ qr:document.getElementById("qr"),qrUrl:document.getElementById("qrUrl"),
+ downloadQrBtn:document.getElementById("downloadQrBtn")
+};
+el.tableNo.textContent=table;
+function cats(){return [...new Set(data.map(x=>x.cat))]}
+function renderTabs(){el.tabs.innerHTML=cats().map(c=>`<button class="${c===cat?"on":""}" onclick="cat='${c}';renderMenu();renderTabs()">${c}</button>`).join("")}
+function renderMenu(){el.menu.innerHTML=data.filter(x=>x.cat===cat).map(x=>`<div class="item"><div class="emoji">${x.emoji}</div><h3>${x.name}</h3><div class="price">฿${x.price}</div><button class="btn" onclick="add(${x.id})">+ เพิ่มลงตะกร้า</button></div>`).join("")}
+function add(id){const x=data.find(a=>a.id===id),y=cartItems.find(a=>a.id===id);y?y.qty++:cartItems.push({...x,qty:1});renderCart()}
+function changeQty(id,delta){const x=cartItems.find(a=>a.id===id);if(!x)return;x.qty+=delta;if(x.qty<=0)cartItems=cartItems.filter(a=>a.id!==id);renderCart()}
+function renderCart(){el.cart.innerHTML=cartItems.length?cartItems.map(x=>`<div class="cartline"><span>${x.name}<br><small class="muted">฿${x.price} × ${x.qty}</small></span><span><button class="btn" style="padding:4px 8px" onclick="changeQty(${x.id},-1)">−</button> ฿${x.price*x.qty} <button class="btn" style="padding:4px 8px" onclick="changeQty(${x.id},1)">+</button></span></div>`).join("")+`<div class="total"><span>รวม</span><span>฿${cartItems.reduce((s,x)=>s+x.price*x.qty,0)}</span></div>`:"<div class='muted'>ยังไม่มีสินค้า</div>"}
 function orders(){return JSON.parse(localStorage.getItem("orders")||"[]")}function saveOrders(x){localStorage.setItem("orders",JSON.stringify(x))}
-function placeOrder(){if(!cart.length)return alert("กรุณาเลือกสินค้า");let o=orders();o.unshift({id:Date.now(),table,items:cart,total:cart.reduce((s,x)=>s+x.price*x.qty,0),note:note.value,status:"รับออเดอร์แล้ว",time:new Date().toLocaleString("th-TH")});saveOrders(o);cart=[];note.value="";renderCart();renderHistory();alert("สั่งสำเร็จ")}
+function placeOrder(){if(!cartItems.length){alert("กรุณาเลือกสินค้าอย่างน้อย 1 รายการ");return}let o=orders();o.unshift({id:Date.now(),table,items:cartItems.map(x=>({...x})),total:cartItems.reduce((s,x)=>s+x.price*x.qty,0),note:el.note.value.trim(),status:"รับออเดอร์แล้ว",time:new Date().toLocaleString("th-TH")});saveOrders(o);cartItems=[];el.note.value="";renderCart();renderHistory();alert("สั่งอาหารสำเร็จ! โต๊ะ "+table)}
 function card(o,staff=false){return `<div class="order"><b>โต๊ะ ${o.table}</b> · <span class="muted">${o.time}</span><br>${o.items.map(x=>x.name+" × "+x.qty).join(", ")}<br><b>รวม ฿${o.total}</b><br><span class="status">${o.status}</span>${o.note?"<br><span class='muted'>"+o.note+"</span>":""}${staff?`<br><button class="btn" style="margin-top:8px" onclick="nextStatus(${o.id})">อัปเดตสถานะ</button>`:""}</div>`}
-function renderHistory(){history.innerHTML=orders().filter(o=>o.table===table).map(o=>card(o)).join("")||"<div class='muted'>ยังไม่มีออเดอร์</div>"}
-function toggleStaff(){customer.classList.toggle("hidden");staff.classList.toggle("hidden");renderStaff()}function renderStaff(){allOrders.innerHTML=orders().map(o=>card(o,true)).join("")||"<div class='muted'>ยังไม่มีออเดอร์</div>"}
+function renderHistory(){el.history.innerHTML=orders().filter(o=>o.table===table).map(o=>card(o)).join("")||"<div class='muted'>ยังไม่มีออเดอร์</div>"}
+function toggleStaff(){el.customer.classList.toggle("hidden");el.staff.classList.toggle("hidden");renderStaff()}function renderStaff(){el.allOrders.innerHTML=orders().map(o=>card(o,true)).join("")||"<div class='muted'>ยังไม่มีออเดอร์</div>"}
 function nextStatus(id){let st=["รับออเดอร์แล้ว","กำลังเตรียม","พร้อมเสิร์ฟ","เสิร์ฟแล้ว"],o=orders(),x=o.find(a=>a.id===id);if(x)x.status=st[Math.min(st.length-1,st.indexOf(x.status)+1)];saveOrders(o);renderStaff();renderHistory()}
-function makeQR(){let tableValue=String(qrTable.value||"").trim();if(!tableValue||Number(tableValue)<1){alert("กรุณาใส่หมายเลขโต๊ะ");return}let url=location.origin+location.pathname+"?table="+encodeURIComponent(tableValue);QRCode.toCanvas(document.getElementById("qr"),url,{width:260,margin:2,errorCorrectionLevel:"H"},function(err){if(err){console.error(err);alert("สร้าง QR ไม่สำเร็จ");return}qrUrl.textContent="โต๊ะ "+tableValue+" • "+url;downloadQrBtn.style.display="block"})}
-function downloadQR(){const canvas=document.getElementById("qr");if(!canvas.width)return alert("กรุณาสร้าง QR ก่อน");const a=document.createElement("a");a.download="hangout-table-"+qrTable.value+".png";a.href=canvas.toDataURL("image/png");a.click()}
+function makeQR(){let tableValue=String(el.qrTable.value||"").trim();if(!tableValue||Number(tableValue)<1){alert("กรุณาใส่หมายเลขโต๊ะ");return}let url=location.origin+location.pathname+"?table="+encodeURIComponent(tableValue);QRCode.toCanvas(el.qr,url,{width:260,margin:2,errorCorrectionLevel:"H"},function(err){if(err){console.error(err);alert("สร้าง QR ไม่สำเร็จ");return}el.qrUrl.textContent="โต๊ะ "+tableValue+" • "+url;el.downloadQrBtn.style.display="block"})}
+function downloadQR(){const canvas=el.qr;if(!canvas.width)return alert("กรุณาสร้าง QR ก่อน");const a=document.createElement("a");a.download="hangout-table-"+el.qrTable.value+".png";a.href=canvas.toDataURL("image/png");a.click()}
 renderTabs();renderMenu();renderCart();renderHistory();
 </script></body></html>

@@ -1,0 +1,29 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hangout QR Order</title><style>
+body{margin:0;font-family:system-ui;background:#111;color:#fff}.wrap{max-width:1050px;margin:auto;padding:20px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.card{background:#1c1c1c;border:1px solid #333;border-radius:16px;padding:16px;margin:14px 0}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tabs button,.btn{border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}.tabs button{background:#2a2a2a;color:#fff}.tabs button.on,.btn{background:#ffb703;color:#111}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.item{background:#181818;border:1px solid #333;border-radius:14px;padding:14px}.price{color:#ffd166;font-weight:800}.cartline{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #333}.muted{color:#aaa}.hidden{display:none}input,textarea{width:100%;box-sizing:border-box;padding:11px;border-radius:9px;border:1px solid #444;background:#111;color:#fff;margin:6px 0}.staff{display:grid;grid-template-columns:2fr 1fr;gap:12px}@media(max-width:700px){.staff{grid-template-columns:1fr}.top{align-items:flex-start;flex-direction:column}}</style>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script></head><body><div class="wrap">
+<div class="top"><div><h1>Hangout QR Order</h1><div class="muted">ระบบสั่งอาหารและเครื่องดื่มผ่าน QR Code</div></div><button class="btn" onclick="toggleStaff()">พนักงาน</button></div>
+<div id="customer"><div class="card"><h2>โต๊ะ <span id="tableNo"></span></h2><div class="tabs" id="tabs"></div></div><div class="grid" id="menu"></div>
+<div class="card"><h2>ตะกร้า</h2><div id="cart"></div><textarea id="note" placeholder="หมายเหตุ เช่น ไม่เผ็ด / ไม่ใส่น้ำแข็ง"></textarea><button class="btn" onclick="placeOrder()">ยืนยันคำสั่งซื้อ</button></div>
+<div class="card"><h2>ออเดอร์โต๊ะนี้</h2><div id="history"></div></div></div>
+<div id="staff" class="hidden"><div class="staff"><div class="card"><h2>ออเดอร์ล่าสุด</h2><div id="allOrders"></div></div><div class="card"><h2>สร้าง QR โต๊ะ</h2><input id="qrTable" type="number" value="1" min="1"><button class="btn" onclick="makeQR()">สร้าง QR</button><canvas id="qr" style="background:white;margin-top:14px;max-width:100%"></canvas><div id="qrUrl" class="muted"></div></div></div></div>
+</div><script>
+const data=[
+["อาหาร","ข้าวผัดกุ้ง",89],["อาหาร","กะเพราหมูกรอบ",99],["อาหาร","ปีกไก่ทอด",119],["อาหาร","เฟรนช์ฟรายส์",79],["อาหาร","ยำวุ้นเส้นทะเล",129],["อาหาร","ต้มแซ่บกระดูกอ่อน",159],
+["น้ำอัดลม","โค้ก",30],["น้ำอัดลม","สไปรท์",30],["น้ำอัดลม","โซดา",25],["เบียร์","Singha",95],["เบียร์","Leo",85],["เบียร์","Chang",85],
+["สุรา","Regency",520],["สุรา","Blend 285",490],["สุรา","Hong Thong",420],["มิกเซอร์","น้ำแข็ง",40],["มิกเซอร์","น้ำเปล่า",20],["มิกเซอร์","โทนิค",35]
+].map((x,i)=>({id:i+1,cat:x[0],name:x[1],price:x[2]}));
+const q=new URLSearchParams(location.search),table=q.get("table")||"1";let cat="อาหาร",cart=[];
+document.getElementById("tableNo").textContent=table;
+function cats(){return [...new Set(data.map(x=>x.cat))]} function renderTabs(){tabs.innerHTML=cats().map(c=>`<button class="${c===cat?"on":""}" onclick="cat='${c}';render()">${c}</button>`).join("")}
+function renderMenu(){menu.innerHTML=data.filter(x=>x.cat===cat).map(x=>`<div class="item"><h3>${x.name}</h3><div class="price">฿${x.price}</div><button class="btn" onclick="add(${x.id})">เพิ่ม</button></div>`).join("")}
+function add(id){let x=data.find(a=>a.id===id),y=cart.find(a=>a.id===id);y?y.qty++:cart.push({...x,qty:1});renderCart()}
+function renderCart(){cartEl=document.getElementById("cart");cartEl.innerHTML=cart.length?cart.map(x=>`<div class="cartline"><span>${x.name} × ${x.qty}</span><span>฿${x.price*x.qty}</span></div>`).join("")+`<h3>รวม ฿${cart.reduce((s,x)=>s+x.price*x.qty,0)}</h3>`:"<div class='muted'>ยังไม่มีสินค้า</div>"}
+function orders(){return JSON.parse(localStorage.getItem("orders")||"[]")} function saveOrders(x){localStorage.setItem("orders",JSON.stringify(x))}
+function placeOrder(){if(!cart.length)return alert("กรุณาเลือกสินค้า");let o=orders();o.unshift({id:Date.now(),table,items:cart,total:cart.reduce((s,x)=>s+x.price*x.qty,0),note:note.value,status:"รับออเดอร์แล้ว",time:new Date().toLocaleString("th-TH")});saveOrders(o);cart=[];note.value="";renderCart();renderHistory();alert("สั่งสำเร็จ")}
+function card(o,staff=false){return `<div class="item"><b>โต๊ะ ${o.table}</b> · ${o.time}<br>${o.items.map(x=>x.name+" × "+x.qty).join(", ")}<br><b>รวม ฿${o.total}</b><br><span class="price">${o.status}</span>${o.note?"<br><span class='muted'>"+o.note+"</span>":""}${staff?`<br><button class="btn" onclick="nextStatus(${o.id})">อัปเดตสถานะ</button>`:""}</div>`}
+function renderHistory(){history.innerHTML=orders().filter(o=>o.table===table).map(o=>card(o)).join("")||"<div class='muted'>ยังไม่มีออเดอร์</div>"}
+function toggleStaff(){customer.classList.toggle("hidden");staff.classList.toggle("hidden");renderStaff()} function renderStaff(){allOrders.innerHTML=orders().map(o=>card(o,true)).join("")||"<div class='muted'>ยังไม่มีออเดอร์</div>"}
+function nextStatus(id){let st=["รับออเดอร์แล้ว","กำลังเตรียม","พร้อมเสิร์ฟ","เสิร์ฟแล้ว"],o=orders(),x=o.find(a=>a.id===id);if(x)x.status=st[Math.min(st.length-1,st.indexOf(x.status)+1)];saveOrders(o);renderStaff();renderHistory()}
+function makeQR(){let url=location.origin+location.pathname+"?table="+qrTable.value;QRCode.toCanvas(qr,url,{width:220});qrUrl.textContent=url}
+function render(){renderTabs();renderMenu();renderCart();renderHistory()} render();
+</script></body></html>
